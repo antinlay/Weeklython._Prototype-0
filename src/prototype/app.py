@@ -1,39 +1,30 @@
-from flask import Flask
-import logging
-from aiogram import Bot, Dispatcher, executor, types
+from flask import Flask, request
+import requests
 
 TOKEN_API = '639642745:AAHd9aIHomuZZH7-pxJPRpWAAdMjF4vHRWc'
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
-# Initialize bot and dispatcher
-bot = Bot(token=TOKEN_API)
-dp = Dispatcher(bot)
-
 app = Flask(__name__)
 
-@dp.message_handler(commands=['start', 'help'])
-async def send_welcome(message: types.Message):
-    """
-    This handler will be called when user sends `/start` or `/help` command
-    """
-    await message.reply("Hi!\nI'm EchoBot!\nPowered by aiogram.")
+# chat_id = request.json["message"]["chat"]["id"]
 
-@dp.message_handler()
-async def echo(message: types.Message):
-    # old style:
-    # await bot.send_message(message.chat.id, message.text)
+def send_message(chat_id, text):
+    method = "sendMessage"
+    url = f"https://api.telegram.org/bot{TOKEN_API}/{method}"
+    data = {"chat_id": chat_id, "text": text}
+    requests.post(url, data=data)
 
-    await message.answer(message.text)
+@app.route("/", methods=["GET", "POST"])
+def receive_update():
+    if request.method == "POST":
+        print(request.json)
+        chat_id = request.json["message"]["chat"]["id"]
+        send_message(chat_id, "pong")
+    return {"ok": True}
 
-if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+# @app.route('/', methods=["POST"])
+# def process():  # put application's code here
+#     print(request.json)
+#     return {"ok": True}
 
-@app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
-
-
-if __name__ == '__main__':
-    app.run()
+# if __name__ == '__main__':
+#     app.run()
