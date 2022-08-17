@@ -60,9 +60,9 @@ async def cmd_start(message: types.Message):
                                            request_poll=types.KeyboardButtonPollType(type=types.PollType.REGULAR)))
     poll_keyboard.add(types.KeyboardButton(text="Mode",
                                            request_poll=types.KeyboardButtonPollType(type=types.PollType.mode)))
-    poll_keyboard.add(types.KeyboardButton(text="Cancel"))
-    if message.text == "Cancel":
-        await keyboard1
+    poll_keyboard.add(types.KeyboardButton(text="/cancel"))
+    if message.text == 'Cancel':
+        await message.answer("/cancel", reply_markup=keyboard1)
         return
     await message.answer("Create new poll", reply_markup=poll_keyboard)
 
@@ -99,7 +99,7 @@ async def welcome(message: types.Message):
 async def info(message: types.Message):
     await message.reply('Say ok', reply_markup=keyboard2)
 
-@dp.message_handler(commands=['Cancel'])
+@dp.message_handler(commands=['cancel'])
 async def menu(message: types.Message):
     await message.reply("Privet. Kak tvoi dela?", reply_markup=keyboard1)
 
