@@ -7,28 +7,22 @@ from aiogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButt
 import random
 import smtplib
 
-rndFour = random.randint(1000, 9999)
-
 gmail_user = 'iiepe6op@gmail.com'
 gmail_password = 'aarkahldsqizguga'
 
 
-username = 'antinlay'
+username = 'janiecee'
+postfixMail = '@student.21-school.ru'
 
-def sendEmail(gmail_user, rndFour, username):
+def sendEmail(gmail_user, username):
+    rndFour = random.randint(1000, 9999)
     sent_from = gmail_user
-    to = [username + '@gmail.com']
+    to = username + postfixMail
     subject = 'CODE VOTEBOT'
     body = str(rndFour)
-
-    email_text = """\
-    From: %s
-    To: %s
-    Subject: %s
-    
-    %s
-    """ % (sent_from, ", ".join(to), subject, body)
-
+    print(gmail_user, rndFour, to)
+    email_text = body
+    print(email_text)
     try:
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.ehlo()
@@ -39,19 +33,17 @@ def sendEmail(gmail_user, rndFour, username):
         print('Email sent!')
     except:
         print('Something went wrong...')
-        return 0
-
+    return body
 
 TOKEN_API = '639642745:AAHd9aIHomuZZH7-pxJPRpWAAdMjF4vHRWc'
-
-postfixMail = '@student.21-school.ru'
 
 bot = Bot(token=TOKEN_API)
 dp = Dispatcher(bot)
 
 button1 = KeyboardButton('Enter username')
-button2 = KeyboardButton('Coins')
-keyboard1 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(button1, button2)
+button2 = KeyboardButton('/info')
+button5 = KeyboardButton('/poll')
+keyboard1 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(button1, button2, button5)
 
 button3 = KeyboardButton('Who are you?', request_contact=True)
 button4 = KeyboardButton('Where are you?', request_location=True)
@@ -59,47 +51,72 @@ keyboard2 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).ro
 
 app = Flask(__name__)
 
+@dp.message_handler(commands=["poll"])
+async def cmd_start(message: types.Message):
+    poll_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    poll_keyboard.add(types.KeyboardButton(text="Quize",
+                                           request_poll=types.KeyboardButtonPollType(type=types.PollType.QUIZ)))
+    poll_keyboard.add(types.KeyboardButton(text="Regular",
+                                           request_poll=types.KeyboardButtonPollType(type=types.PollType.REGULAR)))
+    poll_keyboard.add(types.KeyboardButton(text="Mode",
+                                           request_poll=types.KeyboardButtonPollType(type=types.PollType.mode)))
+    poll_keyboard.add(types.KeyboardButton(text="Cancel"))
+    if message.text == "Cancel":
+        await keyboard1
+        return
+    await message.answer("Create new poll", reply_markup=poll_keyboard)
 
-# mail = Mailer(email='iiepe6op@gmail.com', password='aarkahldsqizguga')
-# mail = Mailer.login(usr='iiepe6op@gmail.com', pwd='aarkahldsqizguga')
-# mail.send(receiver='janiecee@student.21-school.ru', subject='CODE', message=str(rndFour))
+@dp.message_handler(content_types=["poll"])
+async def msg_with_poll(message: types.Message):
+    # Если юзер раньше не присылал запросы, выделяем под него запись
+    if not quizzes_database.get(str(message.from_user.id)):
+        quizzes_database[str(message.from_user.id)] = []
+
+    # If user don't have ADMIN permission -
+    if message.poll.type != "quiz":
+        await message.reply("Sorry, only ADMIN")
+        return
+
+    # Сохраняем себе викторину в память
+    quizzes_database[str(message.from_user.id)].append(Quiz(
+        poll_id=message.poll.id,
+        question=message.poll.question,
+        options=[o.text for o in message.poll.options],
+        # if message.poll.type == "quiz":
+        correct_option_id=message.poll.correct_option_id,
+        owner_id=message.from_user.id)
+    )
+    # Сохраняем информацию о её владельце для быстрого поиска в дальнейшем
+    quizzes_owners[message.poll.id] = str(message.from_user.id)
+
+    await message.reply(f'Викторина сохранена. Общее число сохранённых викторин: {len(quizzes_database[str(message.from_user.id)])}')
 
 @dp.message_handler(commands=['start', 'help'])
 async def welcome(message: types.Message):
     await message.reply("Privet. Kak tvoi dela?", reply_markup=keyboard1)
 
+@dp.message_handler(commands=['info'])
+async def info(message: types.Message):
+    await message.reply('Say ok', reply_markup=keyboard2)
+
+@dp.message_handler(commands=['Cancel'])
+async def menu(message: types.Message):
+    await message.reply("Privet. Kak tvoi dela?", reply_markup=keyboard1)
 
 @dp.message_handler()
 async def kb_answer(message: types.Message):
     if message.text == 'Enter username':
-        sendEmail(gmail_user, rndFour, username)
-        # await message.answer('Enter CODE from email')
-    elif message.text == str(rndFour):
-        await message.answer('SUCCESS!')
-    else:
-        await message.answer(f'CODE: {message.text} WRONG, TRY AGAIN!')
-
+        print('name enter!')
+        if message.answer(message.text) != '' :
+            @dp.callback_query_handler(text=[{message.text}])
+            async def enterCode(call: types.CallbackQuery):
+                rndFour = sendEmail(gmail_user, username)
+                await message.answer('Enter CODE from email')
+                @dp.callback_query_handler(text=[str(rndFour)])
+                async def checkCode(call: types.CallbackQuery):
+                    if message.text == str(rndFour):
+                        await message.answer('SUCCESS!')
+                    else:
+                        await message.answer(f'CODE: {message.text} WRONG, TRY AGAIN!')
 
 executor.start_polling(dp)
-
-# def send_message(chat_id, text):
-#     method = "sendMessage"
-#     url = f"https://api.telegram.org/bot{TOKEN_API}/{method}"
-#     data = {"chat_id": chat_id, "text": text}
-#     requests.post(url, data=data)
-#
-# @app.route("/", methods=["GET", "POST"])
-# def receive_update():
-#     if request.method == "POST":
-#         print(request.json)
-#         chat_id = request.json["message"]["chat"]["id"]
-#         send_message(chat_id, "Privet El'vina. Kak tvoi dela?")
-#     return {"ok": True}
-
-# @app.route('/', methods=["POST"])
-# def process():  # put application's code here
-#     print(request.json)
-#     return {"ok": True}
-
-# if __name__ == '__main__':
-#     app.run()
