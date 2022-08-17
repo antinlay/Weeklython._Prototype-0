@@ -1,31 +1,50 @@
 import random
 
 from flask import Flask, request
-from mailer import Mailer
+# from mailer import Mailer
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton
 import random
-# from trycourier import Courier
-#
-# client = Courier(auth_token="pk_prod_J75GGW0Y4ZM2JZNQQ1ZCZY6FFRQC")
-#
-# resp = client.send_message(
-#   message={
-#     "to": { "antinlay@gmail.com"
-#     },
-#     "template": "KY0RJ1CHC746TGQJKBJW4HBD43CK",
-#     "data": {
-#       "variables": "awesomeness",
-#     },
-#   }
-# )
-#
-# print(resp['requestId'])
+import smtplib
+
+rndFour = random.randint(1000, 9999)
+
+gmail_user = 'iiepe6op@gmail.com'
+gmail_password = 'aarkahldsqizguga'
+
+
+username = 'antinlay'
+
+def sendEmail(gmail_user, rndFour, username):
+    sent_from = gmail_user
+    to = [username + '@gmail.com']
+    subject = 'CODE VOTEBOT'
+    body = str(rndFour)
+
+    email_text = """\
+    From: %s
+    To: %s
+    Subject: %s
+    
+    %s
+    """ % (sent_from, ", ".join(to), subject, body)
+
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.ehlo()
+        server.login(gmail_user, gmail_password)
+        server.sendmail(sent_from, to, email_text)
+        server.close()
+
+        print('Email sent!')
+    except:
+        print('Something went wrong...')
+        return 0
+
 
 TOKEN_API = '639642745:AAHd9aIHomuZZH7-pxJPRpWAAdMjF4vHRWc'
 
 postfixMail = '@student.21-school.ru'
-
 
 bot = Bot(token=TOKEN_API)
 dp = Dispatcher(bot)
@@ -40,25 +59,26 @@ keyboard2 = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).ro
 
 app = Flask(__name__)
 
-# mail = Mailer(email='iiepe6op@gmail.com', password='3Bx6G7O3')
+
+# mail = Mailer(email='iiepe6op@gmail.com', password='aarkahldsqizguga')
+# mail = Mailer.login(usr='iiepe6op@gmail.com', pwd='aarkahldsqizguga')
 # mail.send(receiver='janiecee@student.21-school.ru', subject='CODE', message=str(rndFour))
 
 @dp.message_handler(commands=['start', 'help'])
 async def welcome(message: types.Message):
     await message.reply("Privet. Kak tvoi dela?", reply_markup=keyboard1)
 
-# @dp.message_handler(commands=['info'])
-# async def info(message: types.):
-#     await
 
 @dp.message_handler()
-async def kb_answer(message: types.Message, ):
+async def kb_answer(message: types.Message):
     if message.text == 'Enter username':
-        await message.answer('How are you?')
-    elif message.text == 'Coins':
-        await message.answer('100000 00 0000021')
+        sendEmail(gmail_user, rndFour, username)
+        # await message.answer('Enter CODE from email')
+    elif message.text == str(rndFour):
+        await message.answer('SUCCESS!')
     else:
-        await message.answer(f'Your message is: {message.text}')
+        await message.answer(f'CODE: {message.text} WRONG, TRY AGAIN!')
+
 
 executor.start_polling(dp)
 
