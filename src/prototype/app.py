@@ -1,5 +1,7 @@
 import logging
 
+from models import db, User
+
 from flask import Flask, request
 
 from aiogram import Bot, Dispatcher, executor, types
@@ -65,13 +67,14 @@ buttonCampus3 = KeyboardButton('Novosibirsk')
 keyboardCampus = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonCampus1, buttonCampus2, buttonCampus3)
 
 app = Flask(__name__)
+db.create_all()
 
 class Form(StatesGroup):
     username = State()
     code = State()
     campus = State()
-    # tribe = State()
-    # wave = State()
+    tribe = State()
+    wave = State()
 
 @dp.message_handler(commands=['start', 'help'])
 async def start(message: types.Message):
