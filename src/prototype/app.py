@@ -1,6 +1,6 @@
 import logging
 
-from models import db, User
+from models import db, User, City
 
 from flask import Flask, request
 
@@ -69,6 +69,10 @@ keyboardCampus = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=Tru
 app = Flask(__name__)
 db.create_all()
 
+# city = City(city_name='Kazan')
+# db.session.add(city)
+# db.session.commit()
+
 class Form(StatesGroup):
     username = State()
     code = State()
@@ -76,12 +80,14 @@ class Form(StatesGroup):
     tribe = State()
     wave = State()
 
-@dp.message_handler(commands=['start', 'help'])
+@dp.message_handler(commands=['start'])
 async def start(message: types.Message):
     """Conversation entrypoint"""
-    # Set state
-    await Form.username.set()
-    await message.reply("Send me username:")
+    curUser = message.from_user.id
+    user = User.query.filter_by(user_id=curUser).first()
+    if user is None:
+        await Form.username.set()
+        await message.reply("Send me username:")
 
 @dp.message_handler(state='*', commands='cancel')
 @dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
@@ -133,6 +139,10 @@ async def processCampus(message: types.Message, state: FSMContext):
             reply_markup=markup,
             parse_mode=ParseMode.MARKDOWN,
         )
+    curUser = message.from_user
+    newUser = User(user_id=curUser.id, telegram_username=curUser.username, platform_username=data['username'], city_id=data['campus'])
+    db.session.add(newUser)
+    db.session.commit()
     await state.finish()
     await message.answer('You have Admin permissions. Now you can create and reply poll', reply_markup=keyboardPoll)
 @dp.message_handler(commands=["poll"])
