@@ -16,7 +16,7 @@ import smtplib
 
 logging.basicConfig(level=logging.INFO)
 
-TOKEN_API = '639642745:AAHd9aIHomuZZH7-pxJPRpWAAdMjF4vHRWc'
+TOKEN_API = '5595416871:AAEgo1_AqnHMqbWemI8fPplxy3n2pbqcXy0'
 
 bot = Bot(token=TOKEN_API)
 
@@ -29,6 +29,7 @@ gmail_password = 'aarkahldsqizguga'
 
 # username = 'janiecee'
 postfixMail = '@student.21-school.ru'
+adminMail = '@21-school.ru'
 
 def sendEmail(gmail_user, username):
     rndFour = random.randint(1000, 9999)
@@ -51,11 +52,15 @@ def sendEmail(gmail_user, username):
         print('Something went wrong...')
     return body
 
+buttonStudent = KeyboardButton('/student')
+buttonAdmin = KeyboardButton('/adm')
 
 buttonUsername = KeyboardButton('/username')
 buttonInfo = KeyboardButton('/info')
 buttonPoll = KeyboardButton('/poll')
-keyboardPoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonUsername, buttonInfo, buttonPoll)
+buttonCreatePoll = KeyboardButton('/create_poll')
+keyboardPoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonInfo, buttonPoll)
+keyboardCreatePoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonInfo, buttonCreatePoll)
 
 button3 = KeyboardButton('Who are you?', request_contact=True)
 button4 = KeyboardButton('Where are you?', request_location=True)
@@ -80,24 +85,17 @@ class Form(StatesGroup):
     tribe = State()
     wave = State()
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['adm', 'student', 'start'])
 async def start(message: types.Message):
     """Conversation entrypoint"""
     curUser = message.from_user.id
+    nameUser = message.from_user.username
     user = User.query.filter_by(user_id=curUser).first()
     if user is None:
         await Form.username.set()
         await message.reply("Send me username:")
-
-@dp.message_handler(state='*', commands='cancel')
-@dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
-async def cancel_handler(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state is None:
-        return
-    logging.info('Cancelling state %r', current_state)
-    await state.finish()
-    await message.reply('Cancelled.', reply_markup=types.ReplyKeyboardRemove())
+    else:
+        await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
 
 @dp.message_handler(state=Form.username)
 async def sendUsername(message: types.Message, state: FSMContext):
@@ -144,46 +142,58 @@ async def processCampus(message: types.Message, state: FSMContext):
     db.session.add(newUser)
     db.session.commit()
     await state.finish()
-    await message.answer('You have Admin permissions. Now you can create and reply poll', reply_markup=keyboardPoll)
-@dp.message_handler(commands=["poll"])
+    await message.answer('You have Admin permissions. Now you can create and reply poll', reply_markup=keyboardCreatePoll)
+@dp.message_handler(commands=["create_poll"])
 async def cmd_start(message: types.Message):
     poll_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    poll_keyboard.add(types.KeyboardButton(text="Quize",
-                                           request_poll=types.KeyboardButtonPollType(type=types.PollType.QUIZ)))
-    poll_keyboard.add(types.KeyboardButton(text="Regular",
-                                           request_poll=types.KeyboardButtonPollType(type=types.PollType.REGULAR)))
+    # poll_keyboard.add(types.KeyboardButton(text="Quize",
+    #                                        request_poll=types.KeyboardButtonPollType(type=types.PollType.QUIZ)))
+    # poll_keyboard.add(types.KeyboardButton(text="Regular",
+    #                                        request_poll=types.KeyboardButtonPollType(type=types.PollType.REGULAR)))
     poll_keyboard.add(types.KeyboardButton(text="Mode",
                                            request_poll=types.KeyboardButtonPollType(type=types.PollType.mode)))
     poll_keyboard.add(types.KeyboardButton(text="/cancel"))
-    if message.text == 'Cancel':
-        await message.answer("/cancel", reply_markup=keyboard1)
-        return
+    # if message.text == "Cancel":
+    #     markup = types.ReplyKeyboardRemove()
+    #     await message.answer('cancel', reply_markup=markup)
+    #     return
     await message.answer("Create new poll", reply_markup=poll_keyboard)
 
-@dp.message_handler(content_types=["poll"])
-async def msg_with_poll(message: types.Message):
-    # Если юзер раньше не присылал запросы, выделяем под него запись
-    if not quizzes_database.get(str(message.from_user.id)):
-        quizzes_database[str(message.from_user.id)] = []
+# @dp.message_handler(state='*', commands='cancel')
 
-    # If user don't have ADMIN permission -
-    if message.poll.type != "quiz":
-        await message.reply("Sorry, only ADMIN")
-        return
+# @dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
+# async def cancel_handler(message: types.Message, state: FSMContext):
+#     current_state = await state.get_state()
+#     if current_state is None:
+#         return
+#     logging.info('Cancelling state %r', current_state)
+#     await state.finish()
+#     await message.reply('Cancelled.', reply_markup=types.ReplyKeyboardRemove())
 
-    # Сохраняем себе викторину в память
-    quizzes_database[str(message.from_user.id)].append(Quiz(
-        poll_id=message.poll.id,
-        question=message.poll.question,
-        options=[o.text for o in message.poll.options],
-        # if message.poll.type == "quiz":
-        correct_option_id=message.poll.correct_option_id,
-        owner_id=message.from_user.id)
-    )
-    # Сохраняем информацию о её владельце для быстрого поиска в дальнейшем
-    quizzes_owners[message.poll.id] = str(message.from_user.id)
-
-    await message.reply(f'Викторина сохранена. Общее число сохранённых викторин: {len(quizzes_database[str(message.from_user.id)])}')
+# @dp.message_handler(content_types=["poll"])
+# async def msg_with_poll(message: types.Message):
+#     # Если юзер раньше не присылал запросы, выделяем под него запись
+#     if not quizzes_database.get(str(message.from_user.id)):
+#         quizzes_database[str(message.from_user.id)] = []
+#
+#     # If user don't have ADMIN permission -
+#     if message.poll.type != "quiz":
+#         await message.reply("Sorry, only ADMIN")
+#         return
+#
+#     # Сохраняем себе викторину в память
+#     quizzes_database[str(message.from_user.id)].append(Quiz(
+#         poll_id=message.poll.id,
+#         question=message.poll.question,
+#         options=[o.text for o in message.poll.options],
+#         # if message.poll.type == "quiz":
+#         correct_option_id=message.poll.correct_option_id,
+#         owner_id=message.from_user.id)
+#     )
+#     # Сохраняем информацию о её владельце для быстрого поиска в дальнейшем
+#     quizzes_owners[message.poll.id] = str(message.from_user.id)
+#
+#     await message.reply(f'Викторина сохранена. Общее число сохранённых викторин: {len(quizzes_database[str(message.from_user.id)])}')
 
 @dp.message_handler(commands=['info'])
 async def info(message: types.Message):
@@ -191,7 +201,8 @@ async def info(message: types.Message):
 
 @dp.message_handler(commands=['cancel'])
 async def menu(message: types.Message):
-    await message.reply("Menu", reply_markup=keyboard1)
+    remove_keyboard = types.ReplyKeyboardRemove()
+    await message.reply("Menu", reply_markup=remove_keyboard)
 
 
 # @dp.message_handler()
