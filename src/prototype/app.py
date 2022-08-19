@@ -138,12 +138,13 @@ async def saveRole(message: types.Message, state: FSMContext):
                 await message.answer(f'Sorry, you dont have adm permission ', reply_markup=ReplyKeyboardRemove())
                 await state.finish()
                 return
-        if data['role'] == "/student":
+        elif data['role'] == "/student":
             await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
             await state.finish()
 
         else:
             await message.answer(f'Sorry, you dont have permission ', reply_markup=ReplyKeyboardRemove())
+            await state.finish()
             return
 
 @dp.message_handler(state=Form.username)
@@ -167,14 +168,15 @@ async def sendUsername(message: types.Message, state: FSMContext):
     @dp.message_handler(state=Form.code)
     async def processCode(message: types.Message, state: FSMContext):
         if str(rndFour) == message.text:
-            await Form.next()
             await state.update_data(rndFour=int(message.text))
             if data['role'] == "/adm":
+                await Form.next()
+                await Form.next()
+                await Form.next()
                 await message.answer("All right!\nChoose your campus:", reply_markup=keyboardCampus)
-                await Form.next()
-                await Form.next()
 
             else:
+                await Form.next()
                 await message.answer("All right!\nChoose your wave:", reply_markup=keyboardWave)
         else:
             # await state.finish()
