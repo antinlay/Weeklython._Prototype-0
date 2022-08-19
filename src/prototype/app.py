@@ -102,20 +102,28 @@ class Form(StatesGroup):
 
 @dp.message_handler(commands=['help', 'start'])
 async def start(message: types.Message):
+    await Form.role.set()
     await message.answer("Choose role:", reply_markup=keyboardRole)
 
-@dp.message_handler(lambda message: message.text not in ["adm", "student"], state=Form.role)
+@dp.message_handler(state='*', commands='cancel')
+@dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
+async def cancel_handler(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+    logging.info('Cancelling state %r', current_state)
+    await state.finish()
+    await message.reply('Cancelled.', reply_markup=types.ReplyKeyboardRemove())
+
+@dp.message_handler(lambda message: message.text not in ["/adm", "/student"], state=Form.role)
 async def checkRole(message: types.Message):
     return await message.reply("Bad role. Choose your role from the keyboard.")
 @dp.message_handler(state=Form.role)
 async def saveRole(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        await Form.role.set()
         data['role'] = message.text
+        print(data['role'])
     await Form.next()
-@dp.message_handler(commands=['adm'])
-async def cmdAdm(message: types.Message):
-    """Conversation entrypoint"""
     curUser = message.from_user.id
     nameUser = message.from_user.username
     user = User.query.filter_by(user_id=curUser).first()
@@ -123,31 +131,46 @@ async def cmdAdm(message: types.Message):
         await Form.username.set()
         await message.reply("Send me username:")
     else:
-        await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
+        if data['role'] == "/adm":
+            await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
+        elif data['role'] == "/student":
+            await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
 
-
-@dp.message_handler(commands=['student'])
-async def cmdStudent(message: types.Message):
-    """Conversation entrypoint"""
-    curUser = message.from_user.id
-    nameUser = message.from_user.username
-    user = User.query.filter_by(user_id=curUser).first()
-    if user is None:
-        await Form.username.set()
-        await message.reply("Send me username:")
-    else:
-        await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
+# @dp.message_handler(commands=['adm'])
+# async def cmdAdm(message: types.Message):
+#     """Conversation entrypoint"""
+#     curUser = message.from_user.id
+#     nameUser = message.from_user.username
+#     user = User.query.filter_by(user_id=curUser).first()
+#     if user is None:
+#         await Form.username.set()
+#         await message.reply("Send me username:")
+#     else:
+#         await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
+#
+#
+# @dp.message_handler(commands=['student'])
+# async def cmdStudent(message: types.Message):
+#     """Conversation entrypoint"""
+#     curUser = message.from_user.id
+#     nameUser = message.from_user.username
+#     user = User.query.filter_by(user_id=curUser).first()
+#     if user is None:
+#         await Form.username.set()
+#         await message.reply("Send me username:")
+#     else:
+#         await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
 
 @dp.message_handler(state=Form.username)
 async def sendUsername(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['username'] = message.text
-    # if data['role'] == '/adm':
-    #     postfixMail = '@21-school.ru'
-    # elif data['role'] == '/student':
-    postfixMail = '@student.21-school.ru'
-    # else:
-    #     return
+    if data['role'] == '/adm':
+        postfixMail = '@21-school.ru'
+    elif data['role'] == '/student':
+        postfixMail = '@student.21-school.ru'
+    else:
+        return
     await message.reply('Enter code from your email ' + data['username'] + postfixMail + ':')
     code = sendEmail(gmail_user, data['username'], postfixMail)
     await Form.next()
@@ -228,17 +251,6 @@ async def cmd_start(message: types.Message):
     #     return
     await message.answer("Create new poll", reply_markup=poll_keyboard)
 
-# @dp.message_handler(state='*', commands='cancel')
-
-# @dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
-# async def cancel_handler(message: types.Message, state: FSMContext):
-#     current_state = await state.get_state()
-#     if current_state is None:
-#         return
-#     logging.info('Cancelling state %r', current_state)
-#     await state.finish()
-#     await message.reply('Cancelled.', reply_markup=types.ReplyKeyboardRemove())
-
 # @dp.message_handler(content_types=["poll"])
 # async def msg_with_poll(message: types.Message):
 #     # Если юзер раньше не присылал запросы, выделяем под него запись
@@ -268,10 +280,10 @@ async def cmd_start(message: types.Message):
 async def info(message: types.Message):
     await message.reply('Contact and location', reply_markup=keyboard2)
 
-@dp.message_handler(commands=['cancel'])
-async def menu(message: types.Message):
-    remove_keyboard = types.ReplyKeyboardRemove()
-    await message.reply("Menu", reply_markup=remove_keyboard)
+# @dp.message_handler(commands=['cancel'])
+# async def menu(message: types.Message):
+#     remove_keyboard = types.ReplyKeyboardRemove()
+#     await message.reply("Menu", reply_markup=remove_keyboard)
 
 
 # @dp.message_handler()
