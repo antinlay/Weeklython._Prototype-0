@@ -1,6 +1,6 @@
 import logging
 
-from models import db, User, City, engine, desc
+from models import db, User, City, Wave, Tribe, engine, desc
 from query import *
 
 from sqlalchemy.orm import sessionmaker
@@ -48,13 +48,25 @@ def poll_for_send():
     return re_poll_opt
 
 # @dp.message_handler(commands=["city"])
-def sendFilter():
+def sendFilter(filter, id):
     city_users = []
-    filter_id = User.city_id
-    # if filter_id is None:
-    city_filter = session.query(User).filter(filter_id == 'Kazan')
-    # else:
-    #     city_filter = session.query(User).filter(filter_id == campus_id)
+    if filter == 'c':
+        filter_id = User.city_id
+    elif filter == 't':
+        filter_id = User.tribe_id
+    elif filter == 'w':
+        filter_id = User.wave_id
+    if id == 'all':
+        if filter == 'c':
+            city_filter = session.query(City)
+        elif filter == 't':
+            city_filter = session.query(Tribe)
+        elif filter == 'w':
+            city_filter = session.query(Wave)
+    elif id is None:
+        city_filter = session.query(User)
+    else:
+        city_filter = session.query(User).filter(filter_id == id)
     # city_users = []
 
     for u_id in city_filter:
@@ -119,7 +131,7 @@ keyboardTribe = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True
 
 keyboardRole = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonStudent, buttonAdmin)
 
-buttonSendAll = KeyboardButton('Send poll to all students')
+buttonSendAll = KeyboardButton('Send poll to all users')
 buttonGroupFilter = KeyboardButton('Group filter')
 keyboardPoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(buttonSendAll).add(buttonGroupFilter)
 
@@ -311,41 +323,45 @@ async def msg_with_poll(message: types.Message):
     voteData['user_id'] = str(message.from_user.id)
     voteData['question'] = message.poll.question
     voteData['option'] = message.poll.options
+    print(voteData['id'])
     await message.answer("Poll saved", reply_markup=keyboardPoll)
+    return
 
-@dp.message_handler(lambda message: message.text not in ['Send poll to all students', 'Group filter'], state=poll)
+@dp.message_handler(lambda message: message.text not in ['Send poll to all users', 'Group filter', 'Send TRIBE survey', 'ignis', 'terra'], state=poll)
 async def checkPoll(message: types.Message):
     return await message.reply("Bad option. Choose option from keyboard.")
 
-@dp.message_handler(commands='Send poll to all users', state=poll)
+@dp.message_handler(lambda message: message.text == 'Send poll to all users', state=poll)
 async def sendAllStudents(message: types.Message):
     re_poll_opt = poll_for_send()
-    # city_users = []
-    # filter_id = None
-    city_user = sendFilter()
+    id = None
+    print(User.city_id)
+    city_user = sendFilter('0' ,id)
     for i in range(len(city_user)):
         try:
             await bot.send_poll(chat_id=city_user[i], question=voteData.get('question'), is_anonymous=False, options=re_poll_opt)
         except:
             continue
-    await poll.finish()
     await message.answer("Poll sent all users", reply_markup=keyboardPoll)
 
-@dp.message_handler(commands='Group filter', state=poll)
+@dp.message_handler(lambda message: message.text == 'Group filter', state=poll)
 async def groupFilter(message: types.Message):
     await message.answer("Choose filter", reply_markup=keyboardSend)
 
-@dp.message_handler(commands='Send TRIBE survey', state=poll)
-async def sendTribe(message: types.Message):
+@dp.message_handler(lambda message: message.text == 'Send TRIBE survey', state=poll)
+async def chooseTribe(message: types.Message):
     await message.answer("Choose tribe", reply_markup=keyboardTribe)
 
-@dp.message_handler(commands='Send TRIBE survey', state=poll)
-async def sendTribe(message: types.Message):
+@dp.message_handler(state=poll)
+async def sendTribe(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        tribePoll = message.text
     # city_users = []
-    # filter_id = None
-    sendFilter()
-    await poll.finish()
-    await message.answer("Poll sent all users", reply_markup=keyboardPoll)
+    print(tribePoll)
+    filter = 't'
+    sendFilter(filter, tribePoll)
+    # await poll.finish()
+    await message.answer("Poll sent to " + tribePoll, reply_markup=keyboardPoll)
 @dp.message_handler(commands=['info'])
 async def info(message: types.Message):
     await message.reply('Contact and location', reply_markup=keyboard2)
