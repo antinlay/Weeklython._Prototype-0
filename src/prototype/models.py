@@ -15,11 +15,30 @@ class User(db.Model):
     telegram_username = db.Column(db.String(80), unique=True, nullable=False)
     platform_username = db.Column(db.String(80), unique=True, nullable=False)
     city_id = db.Column(db.Integer, ForeignKey("city.city_id"), nullable=False)
+    wave_id = db.Column(db.Integer, ForeignKey("wave.wave_id"), nullable=False)
+    tribe_id = db.Column(db.Integer, ForeignKey("tribe.tribe_id"), nullable=False)
+    admin_status = db.Column(db.Boolean, nullable=False)
     user_answers = relationship("User_answer")
 
     def __repr__(self):
         return '<User %r>' % self.user_id
 
+
+class Wave(db.Model):
+    wave_id = db.Column(db.Integer, primary_key=True)
+    wave_number = db.Column(db.String(80), unique=True, nullable=False)
+    users = relationship("User")
+
+    def __repr__(self):
+        return '<Wave %r>' % self.wave_number
+
+class Tribe(db.Model):
+    tribe_id = db.Column(db.Integer, primary_key=True)
+    tribe_name = db.Column(db.String(80), unique=True, nullable=False)
+    users = relationship("User")
+
+    def __repr__(self):
+        return '<Tribe %r>' % self.tribe_name
 
 class City(db.Model):
     city_id = db.Column(db.Integer, primary_key=True)

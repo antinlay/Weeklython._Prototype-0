@@ -1,4 +1,5 @@
 import logging
+# import sqlite3
 
 from models import db, User, City
 
@@ -30,9 +31,9 @@ gmail_password = 'aarkahldsqizguga'
 # username = 'janiecee'
 # postfixMail = '@student.21-school.ru'
 # adminMail = '@21-school.ru'
-
-def sendEmail(gmail_user, username, postfixMail):
-    rndFour = random.randint(1000, 9999)
+def rndCode():
+    return random.randint(1000, 9999)
+def sendEmail(gmail_user, username, postfixMail, rndFour):
     sent_from = gmail_user
     to = username + postfixMail
     # subject = 'CODE VOTEBOT'
@@ -127,6 +128,10 @@ async def saveRole(message: types.Message, state: FSMContext):
     curUser = message.from_user.id
     nameUser = message.from_user.username
     user = User.query.filter_by(user_id=curUser).first()
+    # con = sqlite3.connect("test.db")
+    # cur = con.cursor()
+    # table = cur.execute("select * from User where user_id =" + curUser)
+    # print(table)
     if user is None:
         await Form.username.set()
         await message.reply("Send me username:")
@@ -171,8 +176,9 @@ async def sendUsername(message: types.Message, state: FSMContext):
         postfixMail = '@student.21-school.ru'
     else:
         return
+    rndFour = rndCode()
     await message.reply('Enter code from your email ' + data['username'] + postfixMail + ':')
-    code = sendEmail(gmail_user, data['username'], postfixMail)
+    code = sendEmail(gmail_user, data['username'], postfixMail, rndFour)
     await Form.next()
     @dp.message_handler(lambda message: not message.text.isdigit(), state=Form.code)
     async def checkCode(message: types.Message):
@@ -196,7 +202,7 @@ async def processWave(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['wave'] = message.text
     await Form.next()
-    await message.answer("All right!\nChoose your wave:", reply_markup=keyboardTribe)
+    await message.answer("All right!\nChoose your tribe:", reply_markup=keyboardTribe)
 
 @dp.message_handler(lambda message: message.text not in ["ignis", "aqua", "air", "terra"], state=Form.tribe)
 async def checkTribe(message: types.Message):
@@ -223,114 +229,45 @@ async def processCampus(message: types.Message, state: FSMContext):
             message.chat.id,
             md.text(
                 md.text('Hello ', md.bold(data['username'])),
+                md.text('Role: ', md.bold(data['role'])),
                 md.text('Campus: ', md.bold(data['campus'])),
+                md.text('Wave: ', md.bold(data['wave'])),
+                md.text('Tribe: ', md.bold(data['tribe'])),
                 sep='\n',
             ),
             reply_markup=markup,
             parse_mode=ParseMode.MARKDOWN,
         )
+    if data['role'] == '/adm':
+        roleBool = True
+    else:
+        roleBool = False
     curUser = message.from_user
-    newUser = User(user_id=curUser.id, telegram_username=curUser.username, platform_username=data['username'], city_id=data['campus'])
+    newUser = User(user_id=curUser.id, telegram_username=curUser.username, platform_username=data['username'], city_id=data['campus'], admin_status=roleBool, tribe_id=data['tribe'], wave_id=data['wave'])
     db.session.add(newUser)
     db.session.commit()
     await state.finish()
-    await message.answer('You have Admin permissions. Now you can create and reply poll', reply_markup=keyboardCreatePoll)
+    if roleBool ==True:
+        await message.answer('You have Admin permissions. Now you can create and reply poll', reply_markup=keyboardCreatePoll)
+    else:
+        await message.answer('You have Student permissions. Now you can create and reply poll', reply_markup=keyboardPoll)
+
 @dp.message_handler(commands=["create_poll"])
 async def cmd_start(message: types.Message):
     poll_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    # poll_keyboard.add(types.KeyboardButton(text="Quize",
-    #                                        request_poll=types.KeyboardButtonPollType(type=types.PollType.QUIZ)))
-    # poll_keyboard.add(types.KeyboardButton(text="Regular",
-    #                                        request_poll=types.KeyboardButtonPollType(type=types.PollType.REGULAR)))
     poll_keyboard.add(types.KeyboardButton(text="Mode",
                                            request_poll=types.KeyboardButtonPollType(type=types.PollType.mode)))
     poll_keyboard.add(types.KeyboardButton(text="/cancel"))
-    # if message.text == "Cancel":
-    #     markup = types.ReplyKeyboardRemove()
-    #     await message.answer('cancel', reply_markup=markup)
-    #     return
     await message.answer("Create new poll", reply_markup=poll_keyboard)
-
-# @dp.message_handler(content_types=["poll"])
-# async def msg_with_poll(message: types.Message):
-#     # Если юзер раньше не присылал запросы, выделяем под него запись
-#     if not quizzes_database.get(str(message.from_user.id)):
-#         quizzes_database[str(message.from_user.id)] = []
-#
-#     # If user don't have ADMIN permission -
-#     if message.poll.type != "quiz":
-#         await message.reply("Sorry, only ADMIN")
-#         return
-#
-#     # Сохраняем себе викторину в память
-#     quizzes_database[str(message.from_user.id)].append(Quiz(
-#         poll_id=message.poll.id,
-#         question=message.poll.question,
-#         options=[o.text for o in message.poll.options],
-#         # if message.poll.type == "quiz":
-#         correct_option_id=message.poll.correct_option_id,
-#         owner_id=message.from_user.id)
-#     )
-#     # Сохраняем информацию о её владельце для быстрого поиска в дальнейшем
-#     quizzes_owners[message.poll.id] = str(message.from_user.id)
-#
-#     await message.reply(f'Викторина сохранена. Общее число сохранённых викторин: {len(quizzes_database[str(message.from_user.id)])}')
 
 @dp.message_handler(commands=['info'])
 async def info(message: types.Message):
     await message.reply('Contact and location', reply_markup=keyboard2)
 
-# @dp.message_handler(commands=['cancel'])
-# async def menu(message: types.Message):
-#     remove_keyboard = types.ReplyKeyboardRemove()
-#     await message.reply("Menu", reply_markup=remove_keyboard)
-
-
-# @dp.message_handler()
-# async def kb_answer(message: types.Message):
-#     if message.text == 'Enter username':
-#         print('name enter!')
-#         if message.answer(message.text) != '' :
-#             @dp.callback_query_handler(text=[{message.text}])
-#             async def enterCode(call: types.CallbackQuery):
-#                 rndFour = sendEmail(gmail_user, username)
-#                 await message.answer('Enter CODE from email')
-#                 @dp.callback_query_handler(text=[str(rndFour)])
-#                 async def checkCode(call: types.CallbackQuery):
-#                     if message.text == str(rndFour):
-#                         await message.answer('SUCCESS!')
-#                     else:
-#                         await message.answer(f'CODE: {message.text} WRONG, TRY AGAIN!')
-
-# @dp.message_handler(state=Form.username)
-# async def process_name(message: types.Message, state: FSMContext):
-#     """Process user name"""
-#     # Finish our conversation
-#     username = {message.text}
-#     rndFour = sendEmail(gmail_user, username)
-#     await state.finish()
-#     await message.reply(f"Hello, {message.text}")
-#     if code == str(rndFour):
-#         await message.reply("/poll")
-
-# @dp.message_handler(commands=['username'])
-# async def add_username_to_db(message: types.Message):
-#     # if message.text == 'Enter username':
-#     # message.reply_to_message is a types.Message object too
-#     try:
-#         username = message.reply_to_message.text
-#         if username: # if replied
-#             rndFour = sendEmail(gmail_user, username)
-#     except AttributeError:
-#         username = 'not replied'
-#     try:
-#         code = message.reply_to_message.text  # if replied
-#         if code == str(rndFour):
-#             await message.reply("/poll")
-#     except AttributeError:
-#         code = 'not replied'
-    # await message.answer(f'Replied message text: {username, code}')
-    # await message.answer(f'Message text: {message.text}')
+@dp.message_handler(commands=['cancel'])
+async def menu(message: types.Message):
+    remove_keyboard = types.ReplyKeyboardRemove()
+    await message.reply("Menu", reply_markup=remove_keyboard)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
