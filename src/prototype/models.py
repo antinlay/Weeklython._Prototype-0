@@ -1,14 +1,14 @@
 from xmlrpc.client import boolean
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
-from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy import Column, ForeignKey, Integer, Table, create_engine, desc
 from sqlalchemy.orm import relationship
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
+engine = create_engine('sqlite:///test.db', echo=True)
 
 class User(db.Model):
     user_id = db.Column(db.Integer, primary_key=True)

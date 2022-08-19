@@ -1,7 +1,9 @@
 import logging
 
-from models import db, User, City
+from models import db, User, City, engine, desc
 from query import *
+
+from sqlalchemy.orm import sessionmaker
 
 from flask import Flask, request
 
@@ -26,6 +28,42 @@ dp = Dispatcher(bot, storage=storage)
 
 gmail_user = 'iiepe6op@gmail.com'
 gmail_password = 'aarkahldsqizguga'
+voteData = {}
+
+Session = sessionmaker(bind=engine)
+session = Session()
+
+def poll_for_send():
+    poll_options = []
+    values = voteData.get('option')
+
+    for value in values:
+        poll_options.append(value)
+
+    poll_opt_dict = dict(poll_options)
+    re_poll_opt = []
+
+    for option_p in poll_opt_dict.keys():
+        re_poll_opt.append(option_p[1])
+    return re_poll_opt
+
+# @dp.message_handler(commands=["city"])
+def sendFilter():
+    city_users = []
+    filter_id = User.city_id
+    # if filter_id is None:
+    city_filter = session.query(User).filter(filter_id == 'Kazan')
+    # else:
+    #     city_filter = session.query(User).filter(filter_id == campus_id)
+    # city_users = []
+
+    for u_id in city_filter:
+        city_users.append(str(u_id.user_id))
+    return city_users
+
+
+
+
 def rndCode():
     return random.randint(1000, 9999)
 
@@ -55,8 +93,8 @@ buttonAdmin = KeyboardButton('/adm')
 buttonUsername = KeyboardButton('/username')
 buttonInfo = KeyboardButton('/info')
 buttonPoll = KeyboardButton('/poll')
-buttonCreatePoll = KeyboardButton('/create_poll')
-keyboardPoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonInfo, buttonPoll)
+buttonCreatePoll = KeyboardButton('/create_poll',request_poll=types.KeyboardButtonPollType(type=types.PollType.mode))
+# keyboardPoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonInfo, buttonPoll)
 keyboardCreatePoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonInfo, buttonCreatePoll)
 
 button3 = KeyboardButton('Who are you?', request_contact=True)
@@ -81,14 +119,19 @@ keyboardTribe = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True
 
 keyboardRole = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonStudent, buttonAdmin)
 
+buttonSendAll = KeyboardButton('Send poll to all students')
+buttonGroupFilter = KeyboardButton('Group filter')
+keyboardPoll = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(buttonSendAll).add(buttonGroupFilter)
+
+buttonSendTribe = KeyboardButton('Send TRIBE survey')
+buttonSendWave = KeyboardButton('Send WAVE survey')
+buttonSendCampus = KeyboardButton('Send CAMPUS survey')
+keyboardSend = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(buttonSendTribe, buttonSendWave, buttonSendCampus)
 
 app = Flask(__name__)
 db.create_all()
 
-# city = City(city_name='Kazan')
-# db.session.add(city)
-# db.session.commit()
-
+poll = State()
 class Form(StatesGroup):
     role = State()
     username = State()
@@ -102,7 +145,7 @@ async def start(message: types.Message):
     await Form.role.set()
     await message.answer("Choose role:", reply_markup=keyboardRole)
 
-@dp.message_handler(state='*', commands='cancel')
+@dp.message_handler(state='*', commands=['cancel'])
 @dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
 async def cancel_handler(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
@@ -124,14 +167,13 @@ async def saveRole(message: types.Message, state: FSMContext):
     curUser = message.from_user.id
     nameUser = message.from_user.username
     user = User.query.filter_by(user_id=curUser).first()
-    conn = create_connection('test.db')
-    admin_status = select_role_by_user_id(conn, curUser)
     if user is None:
         await Form.username.set()
         await message.reply("Send me username:")
     else:
+        admin_status = user.admin_status
         if data['role'] == "/adm":
-            if admin_status == 1:
+            if admin_status is True:
                 await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
                 await state.finish()
             else:
@@ -260,12 +302,50 @@ async def processCampus(message: types.Message, state: FSMContext):
 
 @dp.message_handler(commands=["create_poll"])
 async def cmd_start(message: types.Message):
-    poll_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    poll_keyboard.add(types.KeyboardButton(text="Mode",
-                                           request_poll=types.KeyboardButtonPollType(type=types.PollType.mode)))
-    poll_keyboard.add(types.KeyboardButton(text="/cancel"))
-    await message.answer("Create new poll", reply_markup=poll_keyboard)
+    await poll.set()
+    await message.answer("Create new poll", reply_markup=keyboardPoll)
 
+@dp.message_handler(content_types=["poll"])
+async def msg_with_poll(message: types.Message):
+    voteData['id'] = str(message.poll.id)
+    voteData['user_id'] = str(message.from_user.id)
+    voteData['question'] = message.poll.question
+    voteData['option'] = message.poll.options
+    await message.answer("Poll saved", reply_markup=keyboardPoll)
+
+@dp.message_handler(lambda message: message.text not in ['Send poll to all students', 'Group filter'], state=poll)
+async def checkPoll(message: types.Message):
+    return await message.reply("Bad option. Choose option from keyboard.")
+
+@dp.message_handler(commands='Send poll to all users', state=poll)
+async def sendAllStudents(message: types.Message):
+    re_poll_opt = poll_for_send()
+    # city_users = []
+    # filter_id = None
+    city_user = sendFilter()
+    for i in range(len(city_user)):
+        try:
+            await bot.send_poll(chat_id=city_user[i], question=voteData.get('question'), is_anonymous=False, options=re_poll_opt)
+        except:
+            continue
+    await poll.finish()
+    await message.answer("Poll sent all users", reply_markup=keyboardPoll)
+
+@dp.message_handler(commands='Group filter', state=poll)
+async def groupFilter(message: types.Message):
+    await message.answer("Choose filter", reply_markup=keyboardSend)
+
+@dp.message_handler(commands='Send TRIBE survey', state=poll)
+async def sendTribe(message: types.Message):
+    await message.answer("Choose tribe", reply_markup=keyboardTribe)
+
+@dp.message_handler(commands='Send TRIBE survey', state=poll)
+async def sendTribe(message: types.Message):
+    # city_users = []
+    # filter_id = None
+    sendFilter()
+    await poll.finish()
+    await message.answer("Poll sent all users", reply_markup=keyboardPoll)
 @dp.message_handler(commands=['info'])
 async def info(message: types.Message):
     await message.reply('Contact and location', reply_markup=keyboard2)
