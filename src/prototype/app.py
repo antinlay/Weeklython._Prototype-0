@@ -66,15 +66,14 @@ def sendFilter(filter, id):
     elif id is None:
         city_filter = session.query(User)
     else:
+        print(id)
+        print(filter_id)
         city_filter = session.query(User).filter(filter_id == id)
     # city_users = []
 
     for u_id in city_filter:
         city_users.append(str(u_id.user_id))
     return city_users
-
-
-
 
 def rndCode():
     return random.randint(1000, 9999)
@@ -327,7 +326,7 @@ async def msg_with_poll(message: types.Message):
     await message.answer("Poll saved", reply_markup=keyboardPoll)
     return
 
-@dp.message_handler(lambda message: message.text not in ['Send poll to all users', 'Group filter', 'Send TRIBE survey', 'ignis', 'terra'], state=poll)
+@dp.message_handler(lambda message: message.text not in ['Send poll to all users', 'Group filter', 'Send TRIBE survey', 'ignis', 'terra', 'Send CAMPUS survey', 'Novosibirsk'], state=poll)
 async def checkPoll(message: types.Message):
     return await message.reply("Bad option. Choose option from keyboard.")
 
@@ -362,6 +361,21 @@ async def sendTribe(message: types.Message, state: FSMContext):
     sendFilter(filter, tribePoll)
     # await poll.finish()
     await message.answer("Poll sent to " + tribePoll, reply_markup=keyboardPoll)
+
+@dp.message_handler(lambda message: message.text == 'Send CAMPUS survey', state=poll)
+async def chooseCampus(message: types.Message):
+    await message.answer("Choose campus", reply_markup=keyboardCampus)
+
+@dp.message_handler(state=poll)
+async def sendCampus(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        campusPoll = message.text
+    # city_users = []
+    print(campusPoll)
+    filter = 'c'
+    sendFilter(filter, campusPoll)
+    # await poll.finish()
+    await message.answer("Poll sent to " + campusPoll, reply_markup=keyboardPoll)
 @dp.message_handler(commands=['info'])
 async def info(message: types.Message):
     await message.reply('Contact and location', reply_markup=keyboard2)
