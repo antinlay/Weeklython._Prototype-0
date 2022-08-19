@@ -1,7 +1,7 @@
 import logging
-# import sqlite3
 
 from models import db, User, City
+from query import *
 
 from flask import Flask, request
 
@@ -26,11 +26,6 @@ dp = Dispatcher(bot, storage=storage)
 
 gmail_user = 'iiepe6op@gmail.com'
 gmail_password = 'aarkahldsqizguga'
-
-
-# username = 'janiecee'
-# postfixMail = '@student.21-school.ru'
-# adminMail = '@21-school.ru'
 def rndCode():
     return random.randint(1000, 9999)
 def sendEmail(gmail_user, username, postfixMail, rndFour):
@@ -128,43 +123,23 @@ async def saveRole(message: types.Message, state: FSMContext):
     curUser = message.from_user.id
     nameUser = message.from_user.username
     user = User.query.filter_by(user_id=curUser).first()
-    # con = sqlite3.connect("test.db")
-    # cur = con.cursor()
-    # table = cur.execute("select * from User where user_id =" + curUser)
-    # print(table)
+    conn = create_connection('test.db')
+    admin_status = select_role_by_user_id(conn, curUser)
     if user is None:
         await Form.username.set()
         await message.reply("Send me username:")
     else:
         if data['role'] == "/adm":
-            await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
-        elif data['role'] == "/student":
+            if admin_status == 1:
+                await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
+            else:
+                await message.answer(f'Sorry, you dont have adm permission ', reply_markup=ReplyKeyboardRemove())
+                return
+        if data['role'] == "/student":
             await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
-
-# @dp.message_handler(commands=['adm'])
-# async def cmdAdm(message: types.Message):
-#     """Conversation entrypoint"""
-#     curUser = message.from_user.id
-#     nameUser = message.from_user.username
-#     user = User.query.filter_by(user_id=curUser).first()
-#     if user is None:
-#         await Form.username.set()
-#         await message.reply("Send me username:")
-#     else:
-#         await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
-#
-#
-# @dp.message_handler(commands=['student'])
-# async def cmdStudent(message: types.Message):
-#     """Conversation entrypoint"""
-#     curUser = message.from_user.id
-#     nameUser = message.from_user.username
-#     user = User.query.filter_by(user_id=curUser).first()
-#     if user is None:
-#         await Form.username.set()
-#         await message.reply("Send me username:")
-#     else:
-#         await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
+        else:
+            await message.answer(f'Sorry, you dont have permission ', reply_markup=ReplyKeyboardRemove())
+            return
 
 @dp.message_handler(state=Form.username)
 async def sendUsername(message: types.Message, state: FSMContext):
