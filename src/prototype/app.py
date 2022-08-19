@@ -28,6 +28,7 @@ gmail_user = 'iiepe6op@gmail.com'
 gmail_password = 'aarkahldsqizguga'
 def rndCode():
     return random.randint(1000, 9999)
+
 def sendEmail(gmail_user, username, postfixMail, rndFour):
     sent_from = gmail_user
     to = username + postfixMail
@@ -132,11 +133,15 @@ async def saveRole(message: types.Message, state: FSMContext):
         if data['role'] == "/adm":
             if admin_status == 1:
                 await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
+                await state.finish()
             else:
                 await message.answer(f'Sorry, you dont have adm permission ', reply_markup=ReplyKeyboardRemove())
+                await state.finish()
                 return
         if data['role'] == "/student":
             await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
+            await state.finish()
+
         else:
             await message.answer(f'Sorry, you dont have permission ', reply_markup=ReplyKeyboardRemove())
             return
@@ -153,7 +158,7 @@ async def sendUsername(message: types.Message, state: FSMContext):
         return
     rndFour = rndCode()
     await message.reply('Enter code from your email ' + data['username'] + postfixMail + ':')
-    code = sendEmail(gmail_user, data['username'], postfixMail, rndFour)
+    sendEmail(gmail_user, data['username'], postfixMail, rndFour)
     await Form.next()
     @dp.message_handler(lambda message: not message.text.isdigit(), state=Form.code)
     async def checkCode(message: types.Message):
@@ -161,12 +166,21 @@ async def sendUsername(message: types.Message, state: FSMContext):
 
     @dp.message_handler(state=Form.code)
     async def processCode(message: types.Message, state: FSMContext):
-        if str(code) == message.text:
+        if str(rndFour) == message.text:
             await Form.next()
-            await state.update_data(code=int(message.text))
-            await message.answer("All right!\nChoose your wave:", reply_markup=keyboardWave)
+            await state.update_data(rndFour=int(message.text))
+            if data['role'] == "/adm":
+                await message.answer("All right!\nChoose your campus:", reply_markup=keyboardCampus)
+                await Form.next()
+                await Form.next()
+
+            else:
+                await message.answer("All right!\nChoose your wave:", reply_markup=keyboardWave)
         else:
-            return await message.reply('Code is WRONG.\nTry again:')
+            # await state.finish()
+            await message.reply('Code is WRONG.\nTry again:')
+            # return await message.answer(data['role'], reply_markup=ReplyKeyboardRemove())
+            # code = rndCode()
 
 @dp.message_handler(lambda message: message.text not in ["w12", "w13", "w14"], state=Form.wave)
 async def checkWave(message: types.Message):
@@ -198,34 +212,49 @@ async def checkCampus(message: types.Message):
 async def processCampus(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['campus'] = message.text
-
+        curUser = message.from_user
         markup = types.ReplyKeyboardRemove()
-        await bot.send_message(
-            message.chat.id,
-            md.text(
-                md.text('Hello ', md.bold(data['username'])),
-                md.text('Role: ', md.bold(data['role'])),
-                md.text('Campus: ', md.bold(data['campus'])),
-                md.text('Wave: ', md.bold(data['wave'])),
-                md.text('Tribe: ', md.bold(data['tribe'])),
-                sep='\n',
-            ),
-            reply_markup=markup,
-            parse_mode=ParseMode.MARKDOWN,
-        )
-    if data['role'] == '/adm':
-        roleBool = True
-    else:
-        roleBool = False
-    curUser = message.from_user
-    newUser = User(user_id=curUser.id, telegram_username=curUser.username, platform_username=data['username'], city_id=data['campus'], admin_status=roleBool, tribe_id=data['tribe'], wave_id=data['wave'])
-    db.session.add(newUser)
-    db.session.commit()
+        if data['role'] == '/student':
+            newUser = User(user_id=curUser.id, telegram_username=curUser.username, platform_username=data['username'],
+                           city_id=data['campus'], admin_status=False, tribe_id=data['tribe'], wave_id=data['wave'])
+            db.session.add(newUser)
+            db.session.commit()
+            await bot.send_message(
+                message.chat.id,
+                md.text(
+                    md.text('Hello ', md.bold(data['username'])),
+                    md.text('Role: ', md.bold(data['role'])),
+                    md.text('Campus: ', md.bold(data['campus'])),
+                    md.text('Wave: ', md.bold(data['wave'])),
+                    md.text('Tribe: ', md.bold(data['tribe'])),
+                    sep='\n',
+                ),
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+
+            await message.answer('You have Student permissions. Now you can create and reply poll',
+                                 reply_markup=keyboardPoll)
+        else:
+            newUser = User(user_id=curUser.id, telegram_username=curUser.username, platform_username=data['username'],
+                           city_id=data['campus'], admin_status=True, tribe_id=0, wave_id=0)
+            db.session.add(newUser)
+            db.session.commit()
+
+            await bot.send_message(
+                message.chat.id,
+                md.text(
+                    md.text('Hello ', md.bold(data['username'])),
+                    md.text('Role: ', md.bold(data['role'])),
+                    md.text('Campus: ', md.bold(data['campus'])),
+                    sep='\n',
+                ),
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            await message.answer('You have Admin permissions. Now you can create and reply poll',
+                                 reply_markup=keyboardCreatePoll)
     await state.finish()
-    if roleBool ==True:
-        await message.answer('You have Admin permissions. Now you can create and reply poll', reply_markup=keyboardCreatePoll)
-    else:
-        await message.answer('You have Student permissions. Now you can create and reply poll', reply_markup=keyboardPoll)
 
 @dp.message_handler(commands=["create_poll"])
 async def cmd_start(message: types.Message):
@@ -238,11 +267,6 @@ async def cmd_start(message: types.Message):
 @dp.message_handler(commands=['info'])
 async def info(message: types.Message):
     await message.reply('Contact and location', reply_markup=keyboard2)
-
-@dp.message_handler(commands=['cancel'])
-async def menu(message: types.Message):
-    remove_keyboard = types.ReplyKeyboardRemove()
-    await message.reply("Menu", reply_markup=remove_keyboard)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
