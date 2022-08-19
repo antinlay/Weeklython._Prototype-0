@@ -28,14 +28,14 @@ gmail_password = 'aarkahldsqizguga'
 
 
 # username = 'janiecee'
-postfixMail = '@student.21-school.ru'
-adminMail = '@21-school.ru'
+# postfixMail = '@student.21-school.ru'
+# adminMail = '@21-school.ru'
 
-def sendEmail(gmail_user, username):
+def sendEmail(gmail_user, username, postfixMail):
     rndFour = random.randint(1000, 9999)
     sent_from = gmail_user
     to = username + postfixMail
-    subject = 'CODE VOTEBOT'
+    # subject = 'CODE VOTEBOT'
     body = str(rndFour)
     print(gmail_user, rndFour, to)
     email_text = body
@@ -71,6 +71,14 @@ buttonCampus2 = KeyboardButton('Moscow')
 buttonCampus3 = KeyboardButton('Novosibirsk')
 keyboardCampus = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonCampus1, buttonCampus2, buttonCampus3)
 
+buttonWave1 = KeyboardButton('w12')
+buttonWave2 = KeyboardButton('w13')
+buttonWave3 = KeyboardButton('w14')
+keyboardWave = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonWave1, buttonWave2, buttonWave3)
+
+keyboardRole = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonStudent, buttonAdmin)
+
+
 app = Flask(__name__)
 db.create_all()
 
@@ -79,14 +87,28 @@ db.create_all()
 # db.session.commit()
 
 class Form(StatesGroup):
+    role = State()
     username = State()
     code = State()
     campus = State()
     tribe = State()
     wave = State()
 
-@dp.message_handler(commands=['adm', 'student', 'start'])
+@dp.message_handler(commands=['help', 'start'])
 async def start(message: types.Message):
+    await message.answer("Choose role:", reply_markup=keyboardRole)
+
+@dp.message_handler(lambda message: message.text not in ["adm", "student"], state=Form.role)
+async def checkRole(message: types.Message):
+    return await message.reply("Bad role. Choose your role from the keyboard.")
+@dp.message_handler(state=Form.role)
+async def saveRole(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        await Form.role.set()
+        data['role'] = message.text
+    await Form.next()
+@dp.message_handler(commands=['adm'])
+async def cmdAdm(message: types.Message):
     """Conversation entrypoint"""
     curUser = message.from_user.id
     nameUser = message.from_user.username
@@ -97,13 +119,32 @@ async def start(message: types.Message):
     else:
         await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardCreatePoll)
 
+
+@dp.message_handler(commands=['student'])
+async def cmdStudent(message: types.Message):
+    """Conversation entrypoint"""
+    curUser = message.from_user.id
+    nameUser = message.from_user.username
+    user = User.query.filter_by(user_id=curUser).first()
+    if user is None:
+        await Form.username.set()
+        await message.reply("Send me username:")
+    else:
+        await message.answer(f'Welcome back, ' + str(nameUser), reply_markup=keyboardPoll)
+
 @dp.message_handler(state=Form.username)
 async def sendUsername(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['username'] = message.text
-    await Form.next()
+    if data['role'] == '/adm':
+        postfixMail = '@21-school.ru'
+    elif data['role'] == '/student':
+        postfixMail = '@student.21-school.ru'
+    else:
+        return
     await message.reply('Enter code from your email ' + data['username'] + postfixMail + ':')
-    code = sendEmail(gmail_user, data['username'])
+    code = sendEmail(gmail_user, data['username'], postfixMail)
+    await Form.next()
     @dp.message_handler(lambda message: not message.text.isdigit(), state=Form.code)
     async def checkCode(message: types.Message):
         return await message.reply('Code is WRONG.\nTry again:')
@@ -113,9 +154,20 @@ async def sendUsername(message: types.Message, state: FSMContext):
         if str(code) == message.text:
             await Form.next()
             await state.update_data(code=int(message.text))
-            await message.answer("All right!\nChoose your campus:", reply_markup=keyboardCampus)
+            await message.answer("All right!\nChoose your campus:", reply_markup=keyboardWave)
         else:
             return await message.reply('Code is WRONG.\nTry again:')
+
+@dp.message_handler(lambda message: message.text not in ["w12", "w13", "w14"], state=Form.wave)
+async def checkWave(message: types.Message):
+    return await message.reply("Bad wave. Choose your wave from the keyboard.")
+
+@dp.message_handler(state=Form.wave)
+async def processWave(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['wave'] = message.text
+    await Form.next()
+    await message.answer("All right!\nChoose your campus:", reply_markup=keyboardCampus)
 
 @dp.message_handler(lambda message: message.text not in ["Kazan", "Moscow", "Novosibirsk"], state=Form.campus)
 async def checkCampus(message: types.Message):
