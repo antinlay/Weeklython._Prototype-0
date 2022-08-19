@@ -76,6 +76,12 @@ buttonWave2 = KeyboardButton('w13')
 buttonWave3 = KeyboardButton('w14')
 keyboardWave = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonWave1, buttonWave2, buttonWave3)
 
+buttonTribe1 = KeyboardButton('ignis')
+buttonTribe2 = KeyboardButton('aqua')
+buttonTribe3 = KeyboardButton('air')
+buttonTribe4 = KeyboardButton('terra')
+keyboardTribe = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonTribe1, buttonTribe2, buttonTribe3, buttonTribe4)
+
 keyboardRole = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).row(buttonStudent, buttonAdmin)
 
 
@@ -90,9 +96,9 @@ class Form(StatesGroup):
     role = State()
     username = State()
     code = State()
-    campus = State()
-    tribe = State()
     wave = State()
+    tribe = State()
+    campus = State()
 
 @dp.message_handler(commands=['help', 'start'])
 async def start(message: types.Message):
@@ -167,7 +173,18 @@ async def processWave(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['wave'] = message.text
     await Form.next()
-    await message.answer("All right!\nChoose your wave:", reply_markup=keyboardCampus)
+    await message.answer("All right!\nChoose your wave:", reply_markup=keyboardTribe)
+
+@dp.message_handler(lambda message: message.text not in ["ignis", "aqua", "air", "terra"], state=Form.tribe)
+async def checkTribe(message: types.Message):
+    return await message.reply("Bad tribe. Choose your tribe from the keyboard.")
+
+@dp.message_handler(state=Form.tribe)
+async def processTribe(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['tribe'] = message.text
+    await Form.next()
+    await message.answer("All right!\nChoose your campus:", reply_markup=keyboardCampus)
 
 @dp.message_handler(lambda message: message.text not in ["Kazan", "Moscow", "Novosibirsk"], state=Form.campus)
 async def checkCampus(message: types.Message):
