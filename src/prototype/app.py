@@ -1,6 +1,6 @@
 import logging
 
-from models import db, User, City, Wave, Tribe, engine, desc
+from models import *
 from query import *
 
 from sqlalchemy.orm import sessionmaker
@@ -16,6 +16,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 import aiogram.utils.markdown as md
 import random
 import smtplib
+
+# Base.metadata.create_all(engine)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -151,6 +153,15 @@ class Form(StatesGroup):
     wave = State()
     tribe = State()
     campus = State()
+
+@dp.poll_answer_handler()
+async def just_poll_answer(active_quiz: types.PollAnswer):
+    answers = [o[1] for o in active_quiz.get_current('id')]
+    vott = answers[2]
+    vott = int(vott[0])
+    answer = User_answer(user_id=voteData.get('user_id'), question_id=voteData.get('id'), answer_id=str(vott))
+    db.session.add(answer)
+    db.session.commit()
 
 @dp.message_handler(commands=['help', 'start'])
 async def start(message: types.Message):
@@ -326,8 +337,18 @@ async def msg_with_poll(message: types.Message):
     voteData['question'] = message.poll.question
     voteData['option'] = message.poll.options
     print(voteData['id'])
+    question = Question(message.poll.id, message.poll.question, True, True)
+    sd = poll_for_send()
+    answers = [o[1] for o in sd]
+    # vott = answers[1]
+    # vott = int(vott[0])
+    for o in range(len(sd)):
+        answer = Answer(voteData.get('id'), str(sd[o]))
+        db.session.add(answer)
+    db.session.add(question)
+    db.session.commit()
     await message.answer("Poll saved", reply_markup=keyboardPoll)
-
+    return
 @dp.message_handler(lambda message: message.text not in ['Send all users', 'Group filter', 'Send TRIBE survey', 'Send WAVE survey', 'ignis', 'air', 'terra', 'Send CAMPUS survey', 'Novosibirsk', 'w12', 'w13', 'w14'], state=poll)
 async def checkPoll(message: types.Message):
     return await message.reply("Bad option. Choose option from keyboard.")
