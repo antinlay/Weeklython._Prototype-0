@@ -1,14 +1,17 @@
 from xmlrpc.client import boolean
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
-from sqlalchemy import Column, ForeignKey, Integer, Table, create_engine, desc
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy import create_engine, desc
 
+Base = declarative_base()
+
+engine = create_engine('sqlite:///test.db', echo=True)
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-engine = create_engine('sqlite:///test.db', echo=True)
 
 class User(db.Model):
     user_id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +62,12 @@ class Question(db.Model):
     def __repr__(self):
         return '<Question %r>' % self.question_text
 
+    def __init__(self, question_id, question_text, question_status, question_public_status):
+        self.question_id = question_id
+        self.question_text = question_text
+        self.question_status = question_status
+        self.question_public_status = question_public_status
+
 
 class Answer(db.Model):
     answer_id = db.Column(db.Integer, primary_key=True)
@@ -70,9 +79,13 @@ class Answer(db.Model):
     def __repr__(self):
         return '<Answer %r>' % self.answer_text
 
+    def __init__(self, question_id, answer_text):
+        self.answer_text = answer_text
+        self.question_id = question_id
+
 
 class User_answer(db.Model):
-    user_answer_id = db.Column(db.Integer, primary_key=True)
+    user_answer_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
     answer_id = db.Column(db.Integer, ForeignKey(
         "answer.answer_id"), nullable=False)
     question_id = db.Column(db.Integer, ForeignKey(
