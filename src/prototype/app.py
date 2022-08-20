@@ -157,7 +157,7 @@ async def start(message: types.Message):
     await Form.role.set()
     await message.answer("Choose role:", reply_markup=keyboardRole)
 
-# @dp.message_handler(state='*', commands=['cancel'])
+@dp.message_handler(commands=['cancel'], state='*')
 @dp.message_handler(Text(equals='cancel', ignore_case=True), state='*')
 async def cancel_handler(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
@@ -312,11 +312,13 @@ async def processCampus(message: types.Message, state: FSMContext):
                                  reply_markup=keyboardCreatePoll)
     await state.finish()
 
+poll = State()
+
 @dp.message_handler(commands=["create_poll"])
 async def cmd_start(message: types.Message):
-    # await poll.set()
+    await poll.set()
     await message.answer("Create new poll", reply_markup=keyboardPoll)
-poll = State()
+
 @dp.message_handler(content_types=["poll"])
 async def msg_with_poll(message: types.Message):
     voteData['id'] = str(message.poll.id)
@@ -351,6 +353,14 @@ async def groupFilter(message: types.Message):
 async def chooseTribe(message: types.Message):
     await message.answer("Choose tribe", reply_markup=keyboardTribe)
 
+@dp.message_handler(lambda message: message.text == 'Send CAMPUS survey', state=poll)
+async def chooseCampus(message: types.Message):
+    await message.answer("Choose campus", reply_markup=keyboardCampus)
+
+@dp.message_handler(lambda message: message.text == 'Send WAVE survey', state=poll)
+async def chooseWave(message: types.Message):
+    await message.answer("Choose wave", reply_markup=keyboardWave)
+
 @dp.message_handler(state=poll)
 async def sendTribe(message: types.Message):
     re_poll_opt1 = poll_for_send()
@@ -368,11 +378,6 @@ async def sendTribe(message: types.Message):
     # await poll.finish()
     await message.answer("Poll sent to " + tribePoll, reply_markup=keyboardPoll)
     # await Poll.poll.set()
-
-@dp.message_handler(lambda message: message.text == 'Send CAMPUS survey', state=poll)
-async def chooseCampus(message: types.Message):
-    await message.answer("Choose campus", reply_markup=keyboardCampus)
-
 @dp.message_handler(state=poll)
 async def sendCampus(message: types.Message):
     re_poll_opt2 = poll_for_send()
@@ -389,10 +394,6 @@ async def sendCampus(message: types.Message):
             continue
     # await poll.finish()
     await message.answer("Poll sent to " + campusPoll, reply_markup=keyboardPoll)
-
-@dp.message_handler(lambda message: message.text == 'Send WAVE survey', state=poll)
-async def chooseCampus(message: types.Message):
-    await message.answer("Choose wave", reply_markup=keyboardCampus)
 
 @dp.message_handler(state=poll)
 async def sendCampus(message: types.Message):
