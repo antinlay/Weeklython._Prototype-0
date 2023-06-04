@@ -2,19 +2,6 @@
 
 Разработка прототипа приложения
 
-## Contents
-
-1. [Chapter I](#chapter-i) \
-   1.1. [Intro](#intro)
-2. [Chapter II](#chapter-ii) \
-   2.1. [Task Prototype](#task-prototype)
-3. [Chapter III](#chapter-iii) \
-   3.1. [Part 1. Бекенд](#part-1-бекенд)  
-   3.2. [Part 2. Базовый UI](#part-2-базовый-ui)  
-   3.3. [Part 3. Админка](#part-3-админка)  
-   3.4. [Part 4. Bonus. CI/CD и Extra UI](#part-4-bonus-cicd-и-extra-ui)
-
-
 # Chapter I
 
 ## Intro
